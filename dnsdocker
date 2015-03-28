@@ -1,0 +1,33 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+	echo "Please provide the name of docker container."
+	exit -1
+fi
+
+echo "Registering with the DNS server ..."
+container_name=$1
+container_ip=$(docker inspect $container_name | grep IPAddress | cut -f4 -d'"')
+container_hostname=$(docker inspect userhandling-service |  grep -w "Hostname" | cut -f4 -d'"')
+
+if [ -z "$container_ip" ]; then
+	echo "No IP address is available for docker container \"$container_name\"."
+	echo "Registration failed."
+	exit -1
+fi
+
+if [ -z "$container_hostname" ]; then 
+	echo "No host name is defined for docker container \"$container_name\"."
+	echo "Registration failed."
+	exit -1
+fi
+
+echo "host-record=$container_name,$container_ip" > /opt/docker/dnsmasq.d/0host_$container_hostname
+
+echo "Restarting the DNS server ..."
+sudo launchctl stop homebrew.mxcl.dnsmasq
+sudo launchctl start homebrew.mxcl.dnsmasq
+
+echo ""
+echo "Register Docker container \"$container_name\" with A record:"
+echo "  $container_hostname -> $container_ip"
